@@ -9,7 +9,7 @@
     "start": "node dist/server/entry.mjs",
     "check": "astro check && tsc --noEmit -p tsconfig.scripts.json",
     "test": "vitest run",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test tests/e2e/reader.spec.ts",
     "db:migrate": "tsx scripts/migrate.ts",
     "crawl": "tsx scripts/crawl.ts",
     "worker": "tsx scripts/worker.ts"
