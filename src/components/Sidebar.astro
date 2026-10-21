@@ -1,0 +1,28 @@
+---
+import Icon from './Icon.astro';
+import SourceMark from './SourceMark.astro';
+import { readerUrl } from '../lib/http';
+import { TOPICS } from '../lib/sources';
+import type { Overview } from '../lib/presentation';
+import type { ReaderFilters } from '../lib/types';
+interface Props { data: Overview; filters?: ReaderFilters }
+const { data, filters } = Astro.props;
+const isSources = Astro.url.pathname === '/nguon';
+---
+<aside class="sidebar" id="navigation">
+  <a href="/" class="brand" aria-label="Dorriss Radar — Trang chủ"><img src="/favicon.svg" width="38" height="38" alt=""/><span>radar<span class="brand-dot">.</span><small>by dorriss</small></span></a>
+  <button class="icon-button close-nav" data-menu-close aria-label="Đóng menu"><Icon name="close"/></button>
+  <p class="rail-label">KHÔNG GIAN ĐỌC</p>
+  <nav aria-label="Thư viện" class="main-nav">
+    <a class:list={['nav-item', { active: filters?.view === 'all' && !filters.topic && !filters.source && !isSources }]} href="/"><Icon name="layers"/><span>Tất cả bài viết</span><span class="nav-count">{data.stats.total}</span></a>
+    <a class:list={['nav-item', { active: filters?.view === 'unread' }]} href="/?view=unread"><Icon name="inbox"/><span>Chưa đọc</span><span class="nav-count" data-unread-count>{data.stats.unread}</span></a>
+    <a class:list={['nav-item', { active: filters?.view === 'saved' }]} href="/?view=saved"><Icon name="bookmark"/><span>Đã lưu</span><span class="nav-count" data-saved-count>{data.stats.saved}</span></a>
+  </nav>
+  <p class="rail-label">THEO CHỦ ĐỀ</p>
+  <nav aria-label="Chủ đề" class="topic-nav">{TOPICS.map((topic, i) => <a class:list={[{ selected: filters?.topic === topic.id }]} href={readerUrl({ topic: topic.id })}><span class={`topic-dot dot-${i}`} aria-hidden="true"></span>{topic.label}</a>)}</nav>
+  <div class="rail-heading"><p class="rail-label">NGUỒN ĐỌC</p><a href="/nguon" aria-label="Xem tất cả 20 nguồn đọc">20 <Icon name="arrow" size={14}/></a></div>
+  <nav aria-label="Blog công nghệ" class="source-nav">{data.sources.slice(0, 6).map((source) => <a class:list={[{ selected: filters?.source === source.id }]} href={readerUrl({ source: source.id })}><SourceMark source={source} small/><span>{source.name}</span><span class="nav-count">{source.articleCount}</span></a>)}</nav>
+  <a class:list={['all-sources', { selected: isSources }]} href="/nguon"><Icon name="globe" size={16}/> Khám phá tất cả nguồn <Icon name="arrow" size={14}/></a>
+  <div class="rail-footer"><span class="status-dot"></span><span>Một thói quen nhỏ.<br/>Một góc nhìn mới mỗi ngày.</span></div>
+</aside>
+<button class="nav-scrim" data-menu-close tabindex="-1" aria-label="Đóng menu"></button>

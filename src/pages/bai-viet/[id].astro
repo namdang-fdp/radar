@@ -1,0 +1,33 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Icon from '../../components/Icon.astro';
+import SourceMark from '../../components/SourceMark.astro';
+import Bookmark from '../../components/Bookmark.astro';
+import { getStore } from '../../lib/store';
+import { overview, dateLabel } from '../../lib/presentation';
+import { sourceById, topicLabel } from '../../lib/sources';
+import { validId } from '../../lib/http';
+import { sanitizeArticle } from '../../lib/content';
+const data = await overview();
+let article = null;
+try { if (validId(Astro.params.id) && !data.error) article = await getStore().getArticle(Astro.params.id); } catch { data.error = true; }
+const source = article ? sourceById(article.sourceId)! : null;
+if (data.error) Astro.response.status = 503;
+else if (!article) Astro.response.status = 404;
+---
+<Layout title={article?.title ?? 'Không tìm thấy bài viết'} data={data} reader>
+  <main id="main" class="reader-main">
+    <a class="back-link" href="/"><Icon name="back" size={17}/> Về góc đọc</a>
+    {article && source ? <>
+      <header class="reader-header" data-article-id={article.id} data-is-read={article.isRead ? 'true' : 'false'}>
+        <div class="reader-source"><a class="publisher" href={`/?source=${source.id}`}><SourceMark source={source}/>{source.name}</a><a class="topic-tag" href={`/?topic=${article.topic}`}>{topicLabel(article.topic)}</a></div>
+        <h1 lang="en">{article.title}</h1>
+        <div class="reader-meta"><span>{dateLabel(article.publishedAt)}</span>{article.author && <><span class="meta-dot">·</span><span>{article.author}</span></>}{article.contentStatus !== 'unavailable' && <><span class="meta-dot">·</span><span>{article.readingMinutes} phút đọc</span></>}</div>
+        <div class="reader-toolbar"><Bookmark id={article.id} saved={article.isSaved} label/><button class="read-button" data-read={article.id} aria-pressed={article.isRead ? 'true' : 'false'}><Icon name="check" size={17}/><span>{article.isRead ? 'Đánh dấu chưa đọc' : 'Đánh dấu đã đọc'}</span></button><a href={article.url} target="_blank" rel="noopener noreferrer" class="original-link">Bài gốc <Icon name="external" size={16}/></a></div>
+      </header>
+      {article.contentStatus !== 'full' && <aside class="content-notice"><Icon name="inbox" size={20}/><p>{article.contentStatus === 'feed' ? 'Nội dung do nguồn cung cấp qua RSS, có thể chưa đầy đủ. Bạn có thể mở bài gốc để xem toàn bộ.' : 'Chưa lấy được nội dung bài này. Bạn vẫn có thể đọc trực tiếp tại blog gốc.'}</p></aside>}
+      {article.contentHtml ? <div class="prose" lang="en" set:html={sanitizeArticle(article.contentHtml)}/> : <div class="prose fallback-content">{article.excerpt && <p lang="en">{article.excerpt}</p>}<a href={article.url} target="_blank" rel="noopener noreferrer" class="source-cta">Đọc tại {source.name} <Icon name="external" size={18}/></a></div>}
+      <div class="reader-end"><span class="end-mark" aria-hidden="true">✳</span><p>Một góc nhìn mới, mang theo cho ngày mai.</p><a href={article.url} target="_blank" rel="noopener noreferrer">Nội dung thuộc {source.name} · Xem bản gốc <Icon name="external" size={14}/></a></div>
+    </> : <div class="empty-state"><Icon name="inbox" size={36}/><h1>{data.error ? 'Chưa tải được bài viết.' : 'Không tìm thấy bài viết.'}</h1><p>{data.error ? 'Kiểm tra kết nối PostgreSQL rồi tải lại trang nhé.' : 'Bài viết này không có trong thư viện.'}</p><a class="text-link" href="/">Về tất cả bài viết <Icon name="arrow" size={16}/></a></div>}
+  </main>
+</Layout>

@@ -1,0 +1,41 @@
+---
+import Recommendations from '../components/Recommendations.astro';
+import type { Recommendation } from '../lib/recommendations';
+import Layout from '../layouts/Layout.astro';
+import Icon from '../components/Icon.astro';
+import ArticleRow from '../components/ArticleRow.astro';
+import StatusAside from '../components/StatusAside.astro';
+import { overview } from '../lib/presentation';
+import { filtersFrom, readerUrl } from '../lib/http';
+import { getStore } from '../lib/store';
+import { TOPICS, sourceById, topicLabel } from '../lib/sources';
+import type { Article } from '../lib/types';
+const filters = filtersFrom(Astro.url);
+const data = await overview();
+let result = { articles: [] as Article[], total: 0, page: 1, pageCount: 1 };
+if (!data.error) { try { result = await getStore().listArticles(filters); } catch { data.error = true; } }
+let recommendations: Recommendation[] = [];
+const showRecommendations = !filters.q && !filters.source && !filters.topic && filters.view === 'all' && filters.page === 1;
+if (!data.error && showRecommendations) {
+  try { recommendations = await getStore().recommendations(); }
+  catch { /* Recommendations are optional; the article library stays available. */ }
+}
+if (data.error) Astro.response.status = 503;
+const heading = filters.view === 'saved' ? 'Để dành đọc sau' : filters.view === 'unread' ? 'Những điều chưa đọc' : filters.source ? sourceById(filters.source)!.name : filters.topic ? topicLabel(filters.topic) : 'Bài viết mới';
+const filtered = !!(filters.q || filters.source || filters.topic || filters.view !== 'all');
+---
+<Layout title={heading} data={data} filters={filters}>
+  <div class="content-grid">
+    <main id="main" class="feed-main">
+      <div class="page-heading"><div><p class="eyebrow">GÓC ĐỌC CỦA BẠN <span class="eyebrow-line"></span></p><h1>{heading}<span class="heading-dot">.</span></h1><p class="page-description">Kiến trúc, kỹ thuật và những điều đáng học hỏi.</p></div><button class="refresh-button" data-refresh disabled={data.error} data-running={data.run?.status === 'running' ? 'true' : 'false'}><Icon name="refresh" size={17}/><span data-refresh-label>{data.run?.status === 'running' ? 'Đang cập nhật…' : 'Cập nhật bài'}</span></button></div>
+      {recommendations.length > 0 && <Recommendations items={recommendations}/>}
+      <form method="GET" action="/" class="search-form" role="search"><Icon name="search" size={20}/><input type="search" name="q" value={filters.q} maxlength="200" placeholder="Tìm một điều bạn muốn hiểu hơn…" aria-label="Tìm bài viết"/>{filters.view !== 'all' && <input type="hidden" name="view" value={filters.view}/>}<select name="source" aria-label="Lọc theo nguồn"><option value="">Tất cả nguồn</option>{data.sources.map((source) => <option value={source.id} selected={filters.source === source.id}>{source.name}</option>)}</select>{filters.topic && <input type="hidden" name="topic" value={filters.topic}/>}<button type="submit" class="search-submit" aria-label="Tìm kiếm"><Icon name="arrow" size={20}/></button></form>
+      <nav class="filter-tabs" aria-label="Chọn chủ đề"><a href={readerUrl({ ...filters, topic: '', page: 1 })} aria-current={!filters.topic ? 'page' : undefined}>Tất cả</a>{TOPICS.slice(0, 4).map((topic) => <a href={readerUrl({ ...filters, topic: topic.id, page: 1 })} aria-current={filters.topic === topic.id ? 'page' : undefined}>{topic.id === 'architecture' ? 'Kiến trúc' : topic.id === 'ai' ? 'AI & ML' : topic.id === 'data' ? 'Dữ liệu' : 'Hạ tầng'}</a>)}</nav>
+      <div class="list-heading"><span>{filters.q ? `Kết quả cho “${filters.q}”` : 'DÀNH MỘT CHÚT THỜI GIAN ĐỂ KHÁM PHÁ'}</span><span>{result.total} bài viết{filtered && <> <a href="/" class="clear-filter">Xóa lọc</a></>}</span></div>
+      <div class="article-list">{result.articles.map((article, i) => <ArticleRow article={article} index={(result.page - 1) * 12 + i}/>)}</div>
+      {!data.error && result.articles.length === 0 && <div class="empty-state"><Icon name={filters.view === 'saved' ? 'bookmark' : 'inbox'} size={36}/><h2>{filters.view === 'saved' ? 'Một chỗ cho những bài hay.' : filtered ? 'Chưa có bài viết phù hợp.' : 'Thư viện đang chờ bài đầu tiên.'}</h2><p>{filters.view === 'saved' ? 'Nhấn biểu tượng lưu bên cạnh bài viết để giữ lại và đọc sau.' : filtered ? 'Thử từ khóa khác hoặc bỏ bớt bộ lọc nhé.' : 'Nhấn “Cập nhật bài” để lấy bài viết từ các engineering blogs.'}</p>{filtered && <a href="/" class="text-link">Về tất cả bài viết <Icon name="arrow" size={16}/></a>}</div>}
+      {result.pageCount > 1 && <nav class="pagination" aria-label="Phân trang">{result.page > 1 ? <a href={readerUrl({ ...filters, page: result.page - 1 })}><Icon name="back" size={16}/> Trang trước</a> : <span></span>}<span>{result.page} <span class="muted">/ {result.pageCount}</span></span>{result.page < result.pageCount ? <a href={readerUrl({ ...filters, page: result.page + 1 })}>Trang sau <Icon name="arrow" size={16}/></a> : <span></span>}</nav>}
+    </main>
+    <StatusAside data={data}/>
+  </div>
+</Layout>

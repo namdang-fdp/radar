@@ -1,0 +1,53 @@
+name: radar
+services:
+  web:
+    image: ${RADAR_IMAGE:?A published image digest is required}
+    container_name: radar-web
+    init: true
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_OPTIONS: --max-old-space-size=384
+    networks: [selfhost_net]
+    expose: ["4321"]
+    mem_limit: 512m
+    cpus: 1
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:4321/api/status').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+  worker:
+    image: ${RADAR_IMAGE:?A published image digest is required}
+    container_name: radar-worker
+    init: true
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_OPTIONS: --max-old-space-size=1024
+    command: [node, --import, tsx, scripts/worker.ts]
+    networks: [selfhost_net]
+    depends_on:
+      web: {condition: service_healthy}
+    mem_limit: 1536m
+    cpus: 1.5
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, node, -e, "const fs=require('node:fs');process.exit(Date.now()-fs.statSync('/tmp/radar-worker-heartbeat').mtimeMs<90000?0:1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+networks:
+  selfhost_net:
+    external: true

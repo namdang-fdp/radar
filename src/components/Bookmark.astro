@@ -1,0 +1,6 @@
+---
+import Icon from './Icon.astro';
+interface Props { id: string; saved: boolean; label?: boolean }
+const { id, saved, label = false } = Astro.props;
+---
+<button type="button" class:list={['bookmark-button', { saved, 'with-label': label }]} data-bookmark={id} aria-pressed={saved ? 'true' : 'false'} aria-label={saved ? 'Bỏ lưu bài viết' : 'Lưu bài viết'} title={saved ? 'Bỏ lưu bài viết' : 'Lưu để đọc sau'}><span class="t-icon-swap" data-state={saved ? 'b' : 'a'} aria-hidden="true"><span class="t-icon" data-icon="a"><Icon name="bookmark" size={19}/></span><span class="t-icon" data-icon="b"><Icon name="bookmark" size={19}/></span></span>{label && <span data-save-label>{saved ? 'Đã lưu' : 'Lưu bài viết'}</span>}</button>

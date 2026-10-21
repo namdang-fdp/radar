@@ -1,0 +1,31 @@
+---
+import '@fontsource/be-vietnam-pro/400.css';
+import '@fontsource/be-vietnam-pro/500.css';
+import '@fontsource/be-vietnam-pro/600.css';
+import '@fontsource/be-vietnam-pro/700.css';
+import '../styles/global.css';
+import '../styles/motion.css';
+import Sidebar from '../components/Sidebar.astro';
+import Icon from '../components/Icon.astro';
+import type { Overview } from '../lib/presentation';
+import type { ReaderFilters } from '../lib/types';
+interface Props { title: string; data: Overview; filters?: ReaderFilters; reader?: boolean }
+const { title, data, filters, reader = false } = Astro.props;
+const today = new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+---
+<!doctype html>
+<html lang="vi">
+  <head><meta charset="UTF-8"/><meta name="color-scheme" content="light"/><meta name="viewport" content="width=device-width, initial-scale=1"/><meta name="description" content="Góc đọc engineering blogs mỗi ngày. Kiến trúc, dữ liệu và những câu chuyện kỹ thuật từ các đội ngũ sản phẩm."/><link rel="icon" type="image/svg+xml" href="/favicon.svg"/><title>{title} · Dorriss Radar</title></head>
+  <body class:list={[{ 'reader-page': reader }]}>
+    <a class="skip-link" href="#main">Đến nội dung chính</a>
+    <Sidebar data={data} filters={filters}/>
+    <div class="workspace">
+      <header class="topbar"><div class="topbar-start"><button class="icon-button menu-toggle" data-menu-toggle aria-label="Mở menu" aria-expanded="false" aria-controls="navigation"><Icon name="menu"/></button><span class="topbar-label">THE ENGINEERING READER</span></div><span class="today">{today}</span><a class="profile" href="/" aria-label="Thư viện cá nhân">d.</a></header>
+      {data.error && <div class="database-notice" role="alert">Chưa kết nối được dữ liệu. Hãy kiểm tra PostgreSQL và chạy migration theo hướng dẫn trong README.</div>}
+      <slot/>
+      <footer class="site-footer"><span>Đọc sâu hơn. Hiểu rõ hơn.</span><span>DORRISS RADAR <span aria-hidden="true">↗</span></span></footer>
+    </div>
+    <div class="toast-position"><div class="toast t-toast" role="status" aria-live="polite" aria-atomic="true" id="toast"></div></div>
+    <script>import '../scripts/reader';</script>
+  </body>
+</html>

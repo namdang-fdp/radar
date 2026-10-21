@@ -1,0 +1,47 @@
+{
+  "name": "dorriss-radar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev --host 127.0.0.1",
+    "build": "astro build",
+    "start": "node dist/server/entry.mjs",
+    "check": "astro check && tsc --noEmit -p tsconfig.scripts.json",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "crawl": "tsx scripts/crawl.ts",
+    "worker": "tsx scripts/worker.ts"
+  },
+  "engines": {
+    "node": ">=22.22.0"
+  },
+  "dependencies": {
+    "@astrojs/node": "^11.1.9",
+    "@crawlee/jsdom": "^3.18.2",
+    "@fontsource/be-vietnam-pro": "^5.3.0",
+    "@mozilla/readability": "^0.6.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "astro": "^7.4.1",
+    "croner": "^10.0.1",
+    "dotenv": "^18.0.8",
+    "jsdom": "^26.1.0",
+    "pg": "^8.23.1",
+    "rss-parser": "^3.13.0",
+    "sanitize-html": "^2.18.1",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.11",
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.64.1",
+    "@types/jsdom": "^30.0.0",
+    "@types/node": "^26.6.5",
+    "@types/pg": "^8.23.1",
+    "@types/sanitize-html": "^2.16.2",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

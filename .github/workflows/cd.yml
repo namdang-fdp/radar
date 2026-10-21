@@ -1,0 +1,128 @@
+name: Radar CI/CD
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: radar-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Start isolated PostgreSQL 16 test database
+        shell: bash
+        run: |
+          set -euo pipefail
+          password=$(openssl rand -hex 24)
+          echo "::add-mask::$password"
+          echo "DATABASE_URL=postgresql://radar_ci:$password@127.0.0.1:5435/radar_ci" >> "$GITHUB_ENV"
+          docker run -d --name radar-ci-postgres -p 127.0.0.1:5435:5432 \
+            -e POSTGRES_USER=radar_ci -e POSTGRES_DB=radar_ci -e POSTGRES_PASSWORD="$password" \
+            --health-cmd='pg_isready -U radar_ci -d radar_ci' --health-interval=2s --health-retries=20 postgres:16-alpine
+          for _attempt in {1..30}; do
+            if [[ "$(docker inspect -f '{{.State.Health.Status}}' radar-ci-postgres)" == healthy ]]; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Type check and database tests
+        run: npm run check && npm test
+      - name: Deploy-script tests and shell lint
+        run: |
+          python3 -m unittest discover -s deployment/tests
+          bash -n deployment/cd.sh deployment/ssh-deploy.sh
+          shellcheck deployment/cd.sh deployment/ssh-deploy.sh
+      - run: npm audit --audit-level=high
+      - run: npm run build
+      - name: Deterministic production browser smoke test
+        env:
+          RADAR_CI_FIXTURES: '1'
+          HOST: 127.0.0.1
+          PORT: '4321'
+        run: |
+          set -euo pipefail
+          node --import tsx scripts/seed-smoke.ts
+          npx playwright install --with-deps chromium
+          node dist/server/entry.mjs > /tmp/radar-web.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for _attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:4321/api/status >/dev/null; then break; fi
+            sleep 1
+          done
+          npx playwright test tests/e2e/ci-smoke.spec.ts
+  flutter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.44.8'
+          channel: stable
+          cache: true
+      - working-directory: mobile
+        run: flutter pub get && flutter analyze && flutter test
+  image:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [quality, flutter]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    outputs:
+      digest: ${{ steps.publish.outputs.digest }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push immutable commit tag
+        id: publish
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/radar:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=radar
+          cache-to: type=gha,scope=radar,mode=max
+  deploy:
+    needs: image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Deploy the tested image over verified SSH
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_DIGEST: ${{ needs.image.outputs.digest }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KEY_PASSPHRASE: ${{ secrets.SSH_KEY_PASSPHRASE }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          current=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          if [[ "$current" != "$GITHUB_SHA" ]]; then
+            echo 'Superseded by a newer main commit; not deploying.'
+            exit 0
+          fi
+          bash deployment/ssh-deploy.sh

@@ -1,0 +1,20 @@
+---
+import type { Article } from '../lib/types';
+import { sourceById, topicLabel } from '../lib/sources';
+import { dateLabel } from '../lib/presentation';
+import SourceMark from './SourceMark.astro';
+import Bookmark from './Bookmark.astro';
+interface Props { article: Article; index: number }
+const { article, index } = Astro.props;
+const source = sourceById(article.sourceId)!;
+---
+<article class:list={['article-row', { 'is-read': article.isRead }]}>
+  <div class="row-index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</div>
+  <div class="row-body">
+    <div class="article-meta"><a href={`/?source=${source.id}`} class="publisher"><SourceMark source={source} small/>{source.name}</a><span class="meta-dot">·</span><time datetime={article.publishedAt?.toISOString()}>{dateLabel(article.publishedAt)}</time>{!article.isRead && <span class="unread-dot" role="img" title="Chưa đọc" aria-label="Chưa đọc"></span>}</div>
+    <h2><a href={`/bai-viet/${article.id}`} lang="en">{article.title}</a></h2>
+    {article.excerpt && <p class="article-excerpt" lang="en">{article.excerpt}</p>}
+    <div class="row-bottom"><a href={`/?topic=${article.topic}`} class="topic-tag">{topicLabel(article.topic)}</a><span class="read-time">{article.contentStatus === 'unavailable' ? 'Liên kết gốc' : `${article.readingMinutes} phút đọc`}</span>{article.isRead && <span class="read-label">Đã đọc</span>}</div>
+  </div>
+  <Bookmark id={article.id} saved={article.isSaved}/>
+</article>

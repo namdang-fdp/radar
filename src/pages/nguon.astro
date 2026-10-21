@@ -1,0 +1,17 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Icon from '../components/Icon.astro';
+import SourceMark from '../components/SourceMark.astro';
+import { overview, timeLabel } from '../lib/presentation';
+const data = await overview();
+if (data.error) Astro.response.status = 503;
+const healthy = data.sources.filter((source) => source.lastSuccessAt && !source.lastError).length;
+---
+<Layout title="Nguồn đọc" data={data}>
+  <main id="main" class="sources-main">
+    <div class="page-heading"><div><p class="eyebrow">NHỮNG NGƯỜI XÂY DỰNG SẢN PHẨM</p><h1>Nguồn đọc<span class="heading-dot">.</span></h1><p class="page-description">20 engineering blogs. Rất nhiều điều để học.</p></div><button class="refresh-button" data-refresh disabled={data.error} data-running={data.run?.status === 'running' ? 'true' : 'false'}><Icon name="refresh" size={17}/><span data-refresh-label>Cập nhật bài</span></button></div>
+    <div class="source-summary"><span><span class="status-dot"></span> {healthy}/20 nguồn kết nối thành công</span><span>Cập nhật gần nhất: {timeLabel(data.run?.finishedAt ?? null)}</span></div>
+    <div class="sources-list">{data.sources.map((source, i) => <article class="source-entry"><span class="source-number">{String(i + 1).padStart(2, '0')}</span><SourceMark source={source}/><div class="source-info"><h2><a href={`/?source=${source.id}`}>{source.name}</a></h2><p>{source.description}</p><div class="source-detail"><span class:list={['source-health', { failed: !!source.lastError }]}><span class:list={['status-dot', { warning: !!source.lastError, pending: !source.lastCheckedAt }]}></span>{source.lastError ? source.lastError : source.lastCheckedAt ? 'Đã kết nối' : 'Chưa kiểm tra'}</span><span>{source.articleCount} bài viết</span><span>{timeLabel(source.lastCheckedAt)}</span></div></div><a class="icon-button" href={source.url} target="_blank" rel="noopener noreferrer" aria-label={`Mở blog ${source.name}`}><Icon name="external" size={18}/></a></article>)}</div>
+    <p class="sources-footnote">Nguồn bị chặn hoặc tạm lỗi sẽ được thử lại ở lượt cập nhật tiếp theo. Những bài đã lấy được vẫn nằm trong thư viện.</p>
+  </main>
+</Layout>

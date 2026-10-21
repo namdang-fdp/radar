@@ -1,0 +1,16 @@
+.env
+.env.*
+secrets
+node_modules
+dist
+.astro
+.git
+.codegraph
+artifacts
+coverage
+storage
+test-results
+playwright-report
+*.log
+
+mobile/

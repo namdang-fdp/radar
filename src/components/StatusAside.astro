@@ -1,0 +1,15 @@
+---
+import type { Overview } from '../lib/presentation';
+import { timeLabel } from '../lib/presentation';
+import Icon from './Icon.astro';
+interface Props { data: Overview }
+const { data } = Astro.props;
+const healthy = data.sources.filter((source) => source.lastSuccessAt && !source.lastError).length;
+const failed = data.sources.filter((source) => source.lastError);
+---
+<aside class="reading-aside">
+  <div class="aside-note"><span class="eyebrow">ĐỀU ĐẶN MỖI NGÀY</span><div class="orbital" aria-hidden="true"><span>r.</span><i></i><b></b></div><h2>Công nghệ đi nhanh.<br/>Mình cứ đọc chậm.</h2><p>Một nơi gom những câu chuyện kỹ thuật từ các đội ngũ xây dựng sản phẩm.</p></div>
+  <section class="aside-section" aria-labelledby="library-status"><h2 id="library-status">Thư viện của bạn</h2><dl class="library-stats"><div><dt>Bài viết</dt><dd>{data.stats.total}</dd></div><div><dt>Nguồn theo dõi</dt><dd>{data.sources.length}</dd></div><div><dt>Thêm hôm nay</dt><dd>+{data.stats.added_today}</dd></div></dl></section>
+  <section class="aside-section" aria-labelledby="update-status"><div class="section-heading"><h2 id="update-status">Nhịp cập nhật</h2><span class="status-dot" class:list={[{ warning: failed.length > 0 }]}></span></div><p class="health-label">{healthy}/{data.sources.length} nguồn kết nối thành công</p><p class="aside-muted">Lần gần nhất<br/><strong>{timeLabel(data.run?.finishedAt ?? null)}</strong></p>{failed.length > 0 && <a href="/nguon" class="source-warning">{failed.length} nguồn cần kiểm tra <Icon name="arrow" size={14}/></a>}<div class="schedule"><Icon name="clock" size={16}/><span>Hằng ngày lúc <strong>07:15</strong><small>Giờ Việt Nam</small></span></div></section>
+  <a class="aside-link" href="/nguon">Ghé thăm 20 engineering blogs <Icon name="external" size={14}/></a>
+</aside>

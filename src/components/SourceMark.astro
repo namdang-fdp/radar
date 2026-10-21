@@ -1,0 +1,6 @@
+---
+import type { Source } from '../lib/types';
+interface Props { source: Source; small?: boolean }
+const { source, small = false } = Astro.props;
+---
+<span class:list={['source-mark', { small }]} style={`--source-color:${source.color}`} aria-hidden="true">{source.mark}</span>

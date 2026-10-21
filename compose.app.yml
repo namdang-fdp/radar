@@ -1,0 +1,29 @@
+# Run together with compose.dev.yml. Uses the same PostgreSQL volume.
+services:
+  web:
+    build: .
+    image: dorriss-radar:local
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-radar}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-radar_dev}
+    command: ["sh", "-c", "node --import tsx scripts/migrate.ts && node dist/server/entry.mjs"]
+    ports:
+      - "127.0.0.1:${WEB_PORT:-4321}:4321"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4321/api/status').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+  worker:
+    image: dorriss-radar:local
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-radar}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-radar_dev}
+    command: ["node", "--import", "tsx", "scripts/worker.ts"]
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
